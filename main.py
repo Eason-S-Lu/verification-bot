@@ -1,52 +1,60 @@
 import discord
 import random
-import string
-from dotenv import load_dotenv
-import os
+import smtplib, ssl
 
-load_dotenv()
-
+# Set up the Discord client
 client = discord.Client()
 
-verification_codes = {}
+# Define the email settings
+smtp_server = "smtp.gmail.com"
+port = 465  # For SSL
+sender_email = "your_email@example.com"  # Enter your address
+password = "your_password"  # Enter your password
 
-@client.event
-async def on_ready():
-    print('Logged in as {0.user}'.format(client))
+# Define the verification code generator
+def generate_verification_code():
+    return str(random.randint(100000, 999999))
 
+# Define the email sender function
+def send_verification_code(recipient_email, verification_code):
+    message = """\
+    Subject: Verification Code
+
+    Your verification code is: """ + verification_code
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+        server.login(sender_email, password)
+        server.sendmail(sender_email, recipient_email, message)
+
+# Define the on_message event handler
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
-
+    
     if message.content.startswith('!verify'):
-        # ask for email address
-        await message.channel.send('Please enter your email address:')
+        # Ask the user for their email address
+        await message.channel.send("Please enter your email address:")
         email = await client.wait_for('message', check=lambda m: m.author == message.author)
-
-        # generate and send verification code
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        await message.channel.send(f'Your verification code is: {code}. Please enter this code to verify your email address.')
-
-        # store verification code and email
-        verification_codes[message.author.id] = {'email': email.content, 'code': code}
-
-    elif message.content.startswith('!code'):
-        # check if user has a verification code stored
-        if message.author.id not in verification_codes:
-            await message.channel.send('You do not have a verification code.')
-            return
-
-        # check if verification code is correct
-        if message.content[5:].strip() != verification_codes[message.author.id]['code']:
-            await message.channel.send('Incorrect verification code.')
-            return
-
-        # give user the verified role
-        role = discord.utils.get(message.guild.roles, name='verified')
-        await message.author.add_roles(role)
-
-        # remove verification code from storage
-        del verification_codes[message.author.id]
-
-        await message.channel.send('You have been verified!')
+        
+        # Generate and send the verification code
+        verification_code = generate_verification_code()
+        send_verification_code(email.content, verification_code)
+        await message.channel.send("A verification code has been sent to your email address.")
+        
+        # Ask the user for the verification code
+        await message.channel.send("Please enter the verification code:")
+        code = await client.wait_for('message', check=lambda m: m.author == message.author)
+        
+        # Check if the verification code matches
+        if code.content == verification_code:
+            # Grant the user the verified role
+            role = discord.utils.get(message.guild.roles, name="verified")
+            await message.author.add_roles(role)
+            await message.channel.send("You have been verified!")
+        else:
+            await message.channel.send("The verification code you entered is invalid.")
+            
+# Run the Discord client
+client.run('your_bot_token')
