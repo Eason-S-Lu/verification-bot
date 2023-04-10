@@ -8,7 +8,7 @@ client = discord.Client()
 # Define the email settings
 smtp_server = "smtp.gmail.com"
 port = 465  # For SSL
-sender_email = "your_email@example.com"  # Enter your address
+sender_email = "delivery.test.4@gmail.com"  # Enter your address
 password = "your_password"  # Enter your password
 
 # Define the verification code generator
