@@ -38,6 +38,12 @@ async def on_message(message):
         await message.channel.send("Please enter your email address:")
         email = await client.wait_for('message', check=lambda m: m.author == message.author)
         
+        # Check if the email domain is allowed
+        allowed_domains = ['example.com', 'example.org']  # replace with your allowed domains
+        if not email.content.endswith(tuple(f'@{domain}' for domain in allowed_domains)):
+            await message.channel.send("Sorry, only email addresses from certain domains are allowed for verification.")
+            return
+        
         # Generate and send the verification code
         verification_code = generate_verification_code()
         send_verification_code(email.content, verification_code)
