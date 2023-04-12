@@ -1,66 +1,63 @@
 import discord
+import smtplib
 import random
-import smtplib, ssl
+import os
+from dotenv import load_dotenv
 
-# Set up the Discord client
-client = discord.Client()
+load_dotenv()
 
-# Define the email settings
-smtp_server = "smtp.gmail.com"
-port = 465  # For SSL
-sender_email = "delivery.test.4@gmail.com"  # Enter your address
-password = "your_password"  # Enter your password
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+ALLOWED_DOMAINS = ['example.com', 'example.org'] # replace with the domains you want to allow
 
-# Define the verification code generator
 def generate_verification_code():
     return str(random.randint(100000, 999999))
 
-# Define the email sender function
-def send_verification_code(recipient_email, verification_code):
-    message = """\
-    Subject: Verification Code
-
-    Your verification code is: """ + verification_code
-
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
-        server.login(sender_email, password)
-        server.sendmail(sender_email, recipient_email, message)
-
-# Define the on_message event handler
-@client.event
-async def on_message(message):
-    if message.author == client.user:
+def send_verification_email(recipient_email, verification_code):
+    if recipient_email.split('@')[-1] not in ALLOWED_DOMAINS:
         return
-    
-    if message.content.startswith('!verify'):
-        # Ask the user for their email address
-        await message.channel.send("Please enter your email address:")
-        email = await client.wait_for('message', check=lambda m: m.author == message.author)
-        
-        # Check if the email domain is allowed
-        allowed_domains = ['example.com', 'example.org']  # replace with your allowed domains
-        if not email.content.endswith(tuple(f'@{domain}' for domain in allowed_domains)):
-            await message.channel.send("Sorry, only email addresses from certain domains are allowed for verification.")
-            return
-        
-        # Generate and send the verification code
-        verification_code = generate_verification_code()
-        send_verification_code(email.content, verification_code)
-        await message.channel.send("A verification code has been sent to your email address.")
-        
-        # Ask the user for the verification code
-        await message.channel.send("Please enter the verification code:")
-        code = await client.wait_for('message', check=lambda m: m.author == message.author)
-        
-        # Check if the verification code matches
-        if code.content == verification_code:
-            # Grant the user the verified role
-            role = discord.utils.get(message.guild.roles, name="verified")
-            await message.author.add_roles(role)
-            await message.channel.send("You have been verified!")
-        else:
-            await message.channel.send("The verification code you entered is invalid.")
-            
-# Run the Discord client
-client.run('your_bot_token')
+
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+
+    message = f'Subject: Verification Code\n\nYour verification code is {verification_code}'
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        server.sendmail(SMTP_USERNAME, recipient_email, message)
+
+async def send_verification_code(ctx):
+    verification_code = generate_verification_code()
+    send_verification_email(ctx.author.email, verification_code)
+
+    await ctx.send(f'Please enter the verification code sent to your email, {ctx.author.mention}.')
+
+    def check_verification_code(message):
+        return message.author == ctx.author and message.content == verification_code
+
+    try:
+        message = await client.wait_for('message', timeout=60.0, check=check_verification_code)
+    except asyncio.TimeoutError:
+        await ctx.send('Verification timed out. Please try again.')
+    else:
+        role = discord.utils.get(ctx.guild.roles, name='Verified')
+        await ctx.author.add_roles(role)
+        await ctx.send('You have been verified!')
+
+client = discord.Client()
+
+@client.event
+async def on_ready():
+    print('Bot is ready.')
+
+@client.event
+async def on_member_join(member):
+    await member.send(f'Welcome to the server, {member.mention}! Please verify yourself by using the `!verify` command.')
+
+@client.command()
+async def verify(ctx):
+    await send_verification_code(ctx)
+
+client.run(BOT_TOKEN)
