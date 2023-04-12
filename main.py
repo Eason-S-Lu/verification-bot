@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 import smtplib
 import random
 import os
@@ -9,7 +10,10 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
-ALLOWED_DOMAINS = ['example.com', 'example.org'] # replace with the domains you want to allow
+ALLOWED_DOMAINS = ['pausd.us', 'example.org'] # replace with the domains you want to allow
+
+intents = discord.Intents.default()
+intents.members = True
 
 def generate_verification_code():
     return str(random.randint(100000, 999999))
@@ -46,18 +50,18 @@ async def send_verification_code(ctx):
         await ctx.author.add_roles(role)
         await ctx.send('You have been verified!')
 
-client = discord.Client()
+bot = commands.Bot(command_prefix='!', intents=intents)
 
-@client.event
+@bot.event
 async def on_ready():
     print('Bot is ready.')
 
-@client.event
+@bot.event
 async def on_member_join(member):
     await member.send(f'Welcome to the server, {member.mention}! Please verify yourself by using the `!verify` command.')
 
-@client.command()
+@bot.command()
 async def verify(ctx):
     await send_verification_code(ctx)
 
-client.run(BOT_TOKEN)
+bot.run(BOT_TOKEN)
