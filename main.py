@@ -12,7 +12,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 SMTP_USERNAME = os.getenv('SMTP_USERNAME')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
-ALLOWED_DOMAINS = ['pausd.us',] # replace with the domains you want to allow
+ALLOWED_DOMAINS = ['pausd.us'] # replace with the domains you want to allow
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="~", intents=intents)
@@ -24,7 +24,7 @@ def generate_verification_code():
 
 def send_verification_email(recipient_email, verification_code):
     if recipient_email.split('@')[-1] not in ALLOWED_DOMAINS:
-        return
+        return f'Error: {recipient_email} is not a valid email address for verification.Please use @pausd.us instead, or contact an admin.'
 
     smtp_server = 'smtp.gmail.com'
     smtp_port = 587
@@ -35,6 +35,7 @@ def send_verification_email(recipient_email, verification_code):
         server.starttls()
         server.login(SMTP_USERNAME, SMTP_PASSWORD)
         server.sendmail(SMTP_USERNAME, recipient_email, message)
+
 
 async def send_verification_code(ctx):
     await ctx.send('Please enter your email address to receive a verification code.')
