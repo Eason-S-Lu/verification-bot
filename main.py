@@ -24,9 +24,9 @@ def generate_verification_code():
   return str(random.randint(100000, 999999))
 
 
-def send_verification_email(recipient_email, verification_code):
-  if recipient_email.split('@')[-1] not in ALLOWED_DOMAINS:
-    return f'Error: {recipient_email} is not a valid email address for verification.Please use @pausd.us instead, or contact an admin.'
+async def send_verification_email(email, verification_code):
+  if email.split('@')[-1] not in ALLOWED_DOMAINS:
+    return f'Error: {email} is not a valid email address for verification. Please use @pausd.us instead, or contact an admin.'
 
   smtp_server = 'smtp.gmail.com'
   smtp_port = 587
@@ -36,7 +36,9 @@ def send_verification_email(recipient_email, verification_code):
   with smtplib.SMTP(smtp_server, smtp_port) as server:
     server.starttls()
     server.login(SMTP_USERNAME, SMTP_PASSWORD)
-    server.sendmail(SMTP_USERNAME, recipient_email, message)
+    server.sendmail(SMTP_USERNAME, email, message)
+
+  logging.debug(f'Verification code {verification_code} sent to {email}.')
 
 
 async def send_verification_code(ctx):
@@ -48,53 +50,47 @@ async def send_verification_code(ctx):
       message.channel, discord.TextChannel)
 
   try:
-    message = await bot.wait_for('message', timeout=60.0, check=check_email)
+    message = await bot.wait_for('message', timeout=30.0, check=check_email)
   except asyncio.TimeoutError:
     await ctx.send('Verification timed out. Please try again.')
-  else:
-    email = message.content.strip()
+    return
 
-    await ctx.send('Please confirm your email address by typing it again.')
+  email = message.content.strip()
 
-    try:
-      message = await bot.wait_for('message', timeout=60.0, check=check_email)
-    except asyncio.TimeoutError:
-      await ctx.send('Verification timed out. Please try again.')
-    else:
-      confirm_email = message.content.strip()
+  if email.split('@')[-1] not in ALLOWED_DOMAINS:
+    await ctx.send(
+      f'Error: {email} is not a valid email address for verification. Please use @pausd.us instead, or contact an admin.'
+    )
+    return
 
-      if email != confirm_email:
-        await ctx.send("Email addresses don't match. Please start over.")
-        return
+  verification_code = generate_verification_code()
+  send_result = await send_verification_email(email, verification_code)
 
-      verification_code = generate_verification_code()
-      send_result = send_verification_email(email, verification_code)
+  if send_result is not None:
+    await ctx.send(send_result)
+    return
 
-      if send_result is not None:
-        await ctx.send(send_result)
-      else:
-        logging.debug(
-          f'Verification code {verification_code} sent to {email}.')
-        await ctx.send(f'Please enter the verification code sent to {email}.')
+  await ctx.send(f'Please enter the verification code sent to {email}.')
 
-        def check_verification_code(message):
-          return message.author == ctx.author and message.content == verification_code and isinstance(
-            message.channel, discord.TextChannel)
+  def check_verification_code(message):
+    return message.author == ctx.author and message.content == verification_code and isinstance(
+      message.channel, discord.TextChannel)
 
-        try:
-          message = await bot.wait_for('message',
-                                       timeout=60.0,
-                                       check=check_verification_code)
-        except asyncio.TimeoutError:
-          await ctx.send('Verification timed out. Please try again.')
-        else:
-          guild = ctx.guild
-          member = guild.get_member(ctx.author.id)
-          role = discord.utils.get(guild.roles, name='Verified')
-          await member.add_roles(role)
-          role = discord.utils.get(guild.roles, name='Member (ίστορίαοι)')
-          await member.add_roles(role)
-          await ctx.send('You have been verified!')
+  try:
+    message = await bot.wait_for('message',
+                                 timeout=30.0,
+                                 check=check_verification_code)
+  except asyncio.TimeoutError:
+    await ctx.send('Verification timed out. Please try again.')
+    return
+
+  guild = ctx.guild
+  member = guild.get_member(ctx.author.id)
+  role = discord.utils.get(guild.roles, name='Verified')
+  await member.add_roles(role)
+  role = discord.utils.get(guild.roles, name='Member')
+  await member.add_roles(role)
+  await ctx.send('You have been verified!')
 
 
 @bot.event
