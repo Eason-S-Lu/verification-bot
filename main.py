@@ -19,7 +19,6 @@ bot = commands.Bot(command_prefix="~", intents=intents)
 
 logging.basicConfig(level=logging.DEBUG)
 
-
 def generate_verification_code():
   return str(random.randint(100000, 999999))
 
@@ -92,11 +91,9 @@ async def send_verification_code(ctx):
   await member.add_roles(role)
   await ctx.send('You have been verified!')
 
-
 @bot.event
 async def on_ready():
   logging.info('Bot is ready.')
-
 
 @bot.event
 async def on_member_join(member):
@@ -105,10 +102,8 @@ async def on_member_join(member):
     f'Welcome to the server, {user.mention}! Please verify yourself by using the `~verify` command.'
   )
 
-
 @bot.command()
 async def verify(ctx):
   await send_verification_code(ctx)
-
 
 bot.run(BOT_TOKEN)
