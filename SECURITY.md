@@ -4,8 +4,4 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| ALL   | :white_check_mark: |
-
-## Reporting a Vulnerability
-
-Please privitely email me at github@easonlu.ml
+| 1.2     | :white_check_mark: |
